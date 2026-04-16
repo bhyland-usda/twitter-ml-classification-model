@@ -1,0 +1,297 @@
+version: "2026-03-30.3"
+description: "Guardrail rules for response-actionability classifier (tuned for abusive/xenophobic/conspiracy-style non-actionable filtering)"
+
+override:
+  apply_only_when_predicted_label_in:
+    - actionable
+  final_label: non_actionable
+  final_confidence: 1.0
+  # Any actionable prediction below this confidence is auto-downgraded to non_actionable.
+  # This is applied in addition to regex rule matches.
+  min_actionable_confidence_for_passthrough: 0.85
+  # Require an action-request cue for actionable passthrough.
+  require_action_cue_for_actionable_passthrough: true
+  # Require a concrete action/request phrase for actionable passthrough.
+  require_concrete_action_for_actionable_passthrough: true
+  # If a row is phrased as a question, require an explicit concrete action verb;
+  # otherwise downgrade to non_actionable.
+  require_concrete_action_for_question_passthrough: true
+  # Optional scope gating (kept disabled by default for now).
+  require_scope_signal_for_actionable_passthrough: false
+  # Explicit safety veto categories. Any actionable prediction matching these categories
+  # is force-downgraded to non_actionable.
+  safety_veto_categories:
+    - xenophobia
+    - abuse
+    - violence
+    - conspiracy
+    - scam_spam
+    - health_misinformation
+  # Explicit scope veto categories.
+  scope_veto_categories:
+    - off_topic_geopolitics
+    - out_of_scope
+
+rules:
+  # =========================
+  # Xenophobia / exclusion
+  # =========================
+  - id: xeno_all_islamic_countries
+    enabled: true
+    category: xenophobia
+    pattern: "\\ball islamic countries\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_no_foreigners
+    enabled: true
+    category: xenophobia
+    pattern: "\\bno foreigners\\b.*\\b(own|owning|ownership|land|farmland|property)\\b|\\b(own|owning|ownership|land|farmland|property)\\b.*\\bno foreigners\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_no_illegals
+    enabled: true
+    category: xenophobia
+    pattern: "\\bno illegals?\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_stop_foreigners_buying
+    enabled: true
+    category: xenophobia
+    pattern: "\\bstop foreigners?\\b.*\\b(buy|buying|own|owning|ownership)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_non_citizens_land_ban
+    enabled: true
+    category: xenophobia
+    pattern: "\\b(non[-\\s]?citizens?|foreigners?)\\b.*\\b(own|owning|ownership|buy|acquir(e|ing))\\b.*\\b(land|farmland|soil|property)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_land_ownership_by_non_citizens_reverse
+    enabled: true
+    category: xenophobia
+    pattern: "\\b(end|ban|stop)\\b.*\\b(land|farmland|soil|property)\\s+ownership\\b.*\\b(non[-\\s]?citizens?|foreigners?)\\b|\\b(land|farmland|soil|property)\\s+ownership\\b.*\\bby\\s+(non[-\\s]?citizens?|foreigners?)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_foreign_ownership_food_supply
+    enabled: true
+    category: xenophobia
+    pattern: "\\bno foreign ownership\\b.*\\b(feed|food|us)\\b|\\bforeign ownership\\b.*\\bwho feeds us\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_mosques_land_takeover
+    enabled: true
+    category: xenophobia
+    pattern: "\\b(mosques?|islamic|muslim|islamists?)\\b.*\\b(built|erected|take(?:n|over)?|covered|scattered)\\b|\\b(built|erected|take(?:n|over)?|covered|scattered)\\b.*\\b(mosques?|islamic|muslim|islamists?)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_invasion_takeover_demographic
+    enabled: true
+    category: xenophobia
+    pattern: "\\b(overrun|invaded|invasion|taken over|taking over)\\b.*\\b(illegals?|muslim|islamic|mosques?|islamists?|middle eastern)\\b|\\b(illegals?|muslim|islamic|mosques?|islamists?|middle eastern)\\b.*\\b(overrun|invaded|invasion|taken over|taking over)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: xeno_get_rid_of_mosques_or_builders
+    enabled: true
+    category: xenophobia
+    pattern: "\\b(get rid of|remove|ban)\\b.*\\b(mosques?|the people who build them|people who build them)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: exclusion_kick_off_targeted_group
+    enabled: true
+    category: exclusionary_policy
+    pattern: "\\b(kick\\s*off|remove|cut\\s*off|ban)\\b.*\\b(divorced mothers?|single mothers?|able bodied)\\b|\\b(divorced mothers?|single mothers?|able bodied)\\b.*\\b(kick\\s*off|remove|cut\\s*off|ban)\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Abuse / harassment / profanity
+  # =========================
+  - id: abuse_child_rape_supporter
+    enabled: true
+    category: abuse
+    pattern: "\\bchild rape supporter\\b"
+    flags: ["IGNORECASE"]
+
+  - id: abuse_pedo_rapist
+    enabled: true
+    category: abuse
+    pattern: "\\b(pedo|pedophile|rapist|sexual predator)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: abuse_direct_insult
+    enabled: true
+    category: abuse
+    pattern: "\\byou( are|'re)\\b.*\\b(idiot|moron|trash|fool|scum|shame|pathetic|disgrace)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: abuse_group_dehumanizing_terms
+    enabled: true
+    category: abuse
+    pattern: "\\b(vermin|subhuman|animals)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: abuse_fire_corrupt_one
+    enabled: true
+    category: abuse
+    pattern: "\\b(fire|resign|kick out)\\b.*\\b(corrupt|fraud|shame)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: abuse_strong_profanity
+    enabled: true
+    category: abuse
+    pattern: "\\b(f\\*+ck(?:ing)?|fuck(?:ing)?|shut the fuck up|asses out)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: smear_has_lied
+    enabled: true
+    category: abuse
+    pattern: "\\b(has|have) lied\\b|\\bliar\\b"
+    flags: ["IGNORECASE"]
+
+  - id: smear_epstein_cfc
+    enabled: true
+    category: abuse
+    pattern: "\\bepstein\\b|\\bcfc\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Violence / punitive rhetoric
+  # =========================
+  - id: violence_arrest_treason_combo
+    enabled: true
+    category: violence
+    pattern: "\\barrest them\\b.*\\btreason\\b|\\btreason\\b.*\\barrest them\\b"
+    flags: ["IGNORECASE"]
+
+  - id: violence_traitor_never_spared
+    enabled: true
+    category: violence
+    pattern: "\\btraitor should never be spared\\b"
+    flags: ["IGNORECASE"]
+
+  - id: violence_get_rid_of_people
+    enabled: true
+    category: violence
+    pattern: "\\b(get rid of|remove|eliminate|throw .* out)\\b.*\\b(people|them|asses)\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Conspiracy sloganeering / tax-loot narratives
+  # =========================
+  - id: conspiracy_all_corrupt
+    enabled: true
+    category: conspiracy
+    pattern: "\\b(all|everyone)\\b.*\\bcorrupt\\b"
+    flags: ["IGNORECASE"]
+
+  - id: conspiracy_elites_defrauding
+    enabled: true
+    category: conspiracy
+    pattern: "\\belites?\\b.*\\bdefraud(?:ing)?\\b.*\\bnation\\b"
+    flags: ["IGNORECASE"]
+
+  - id: conspiracy_stealing_taxpayers_money
+    enabled: true
+    category: conspiracy
+    pattern: "\\bstealing taxpayers money\\b|\\btax[-_ ]?loot\\b"
+    flags: ["IGNORECASE"]
+
+  - id: conspiracy_stop_the_steal
+    enabled: true
+    category: conspiracy
+    pattern: "\\bstop the steal\\b"
+    flags: ["IGNORECASE"]
+
+  - id: conspiracy_vax_livestock_rant
+    enabled: true
+    category: conspiracy
+    pattern: "\\b(jabs?\\s+into\\s+(the\\s+)?chickens?|mass\\s+vaccinat(?:e|ing)\\s+(livestock|poultry)|wolves?\\s+in\\s+sheep\\s+clothing|poison\\s+soils?)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: conspiracy_hashtag_fraud_cluster
+    enabled: true
+    category: conspiracy
+    pattern: "(#fraud|#taxloot|#ngojobs|#treason)"
+    flags: ["IGNORECASE"]
+
+  - id: off_topic_geopolitics_war_rant
+    enabled: true
+    category: off_topic_geopolitics
+    pattern: "\\b(for the sake of israel|warmongering objectives|sending american soldiers|middle east|no boots in iran|stop the war)\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Health misinformation / safety-risk narratives
+  # =========================
+  - id: health_misinfo_chemtrail_poison_narrative
+    enabled: true
+    category: health_misinformation
+    pattern: "\\b(chemtrails?|poison(?:ing)?\\s+(?:our\\s+)?(?:food|crops|soil|water|skies)|they are blocking the sun)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: health_misinfo_seed_oils_absolute_ban
+    enabled: true
+    category: health_misinformation
+    pattern: "\\b(?:ban|eliminate|remove|stop)\\b.*\\bseed oils?\\b|\\bseed oils?\\b.*\\b(?:ban|eliminate|remove|stop)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: health_misinfo_cow_feed_conspiracy
+    enabled: true
+    category: health_misinformation
+    pattern: "\\b(bovaer|cow fart feed|fart feed)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: health_misinfo_lab_meat_toxic_claims
+    enabled: true
+    category: health_misinformation
+    pattern: "\\b(lab(?:[-\\s]?grown|\\s+cell(?:\\s+cultured)?)\\s+meat)\\b.*\\b(cancer|poison|toxic|fake)\\b|\\b(cancer|poison|toxic|fake)\\b.*\\b(lab(?:[-\\s]?grown|\\s+cell(?:\\s+cultured)?)\\s+meat)\\b"
+    flags: ["IGNORECASE"]
+
+  - id: out_of_scope_local_pet_outbreak
+    enabled: true
+    category: out_of_scope
+    pattern: "\\b(animal\\s+cruelty|animal\\s+abuse|outbreak\\s+killing\\s+dogs?|dog\\s+outbreak)\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Scam / spam templates
+  # =========================
+  - id: scam_powerball_winner_template
+    enabled: true
+    category: scam_spam
+    pattern: "\\bpowerball winner\\b"
+    flags: ["IGNORECASE"]
+
+  - id: scam_cash_giveaway_template
+    enabled: true
+    category: scam_spam
+    pattern: "\\bgiving out \\$\\d{1,3}(,\\d{3})*(\\.\\d{2})?\\b"
+    flags: ["IGNORECASE"]
+
+  - id: scam_follow_like_comment_claim
+    enabled: true
+    category: scam_spam
+    pattern: "\\bfollow, like, and comment to claim\\b|\\bfollow\\b.*\\blike\\b.*\\bcomment\\b.*\\bclaim\\b"
+    flags: ["IGNORECASE"]
+
+  # =========================
+  # Low-information / link-only
+  # =========================
+  - id: low_info_link_only
+    enabled: true
+    category: low_information
+    pattern: "^(?:@\\w+\\s+)*(https?://\\S+\\s*)+$"
+    flags: ["IGNORECASE"]
+
+  - id: social_connect_template_spam
+    enabled: true
+    category: scam_spam
+    pattern: "\\b(algorithm suggested you to me|if you would like to connect|drop me a|just saying hi and if you would like to connect)\\b"
+    flags: ["IGNORECASE"]
+
+
+
+  - id: low_info_symbol_only_short
+    enabled: true
+    category: low_information
+    pattern: "^[\\W_]{0,6}$"
+    flags: ["IGNORECASE"]
